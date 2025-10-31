@@ -1,0 +1,34 @@
+# On Up
+
+# Clean up any old routes first (both the default via 8.8.8.8 and the /32 helper)
+# – avoid duplicates if the interface flaps
+/ip route remove [find where gateway="8.8.8.8"];
+/ip route remove [find where dst-address="8.8.8.8/32"];
+
+# Create the recursive helper: reach 8.8.8.8 via the PPP peer (remote-address)
+# Use a lower scope so the default route can recurse into this one
+/ip route add dst-address=8.8.8.8/32 gateway=$"remote-address" scope=10 comment="Recursive to 8.8.8.8 via ISP-1 peer"
+
+# Now add the actual default route via 8.8.8.8
+# target-scope must be > scope of the helper above (10 -> 11 here)
+/ip route add gateway=8.8.8.8 distance=1 target-scope=11 check-gateway=ping comment="Default via ISP-1 (recursive)"
+
+# NAT rule:
+# - For dynamic WANs use masquerade
+# - Update existing rule if found; otherwise create a new one
+:local rid [/ip firewall nat find where comment="src-nat via ISP-1"];
+:if ([:len $rid] > 0) do={
+    /ip firewall nat set $rid chain=srcnat action=masquerade ipsec-policy=out,none out-interface=$interface
+} else={
+    /ip firewall nat add chain=srcnat action=masquerade ipsec-policy=out,none out-interface=$interface comment="src-nat via ISP-1"
+}
+
+
+# On down
+
+# Remove both the default route via 8.8.8.8 and the helper
+/ip route remove [find where gateway="8.8.8.8"];
+/ip route remove [find where dst-address="8.8.8.8/32"];
+
+# Remove the NAT rule added on up
+/ip firewall nat remove [find where comment="src-nat via ISP-1"];
