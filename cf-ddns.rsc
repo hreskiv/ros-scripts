@@ -1,7 +1,7 @@
 :local cfToken    "YOUR_TOKEN_HERE"
 :local cfZoneID   "YOUR_ZONE_ID_HERE"
 :local cfRecordID "YOUR_RECORD_ID_HERE"
-:local recordName "YOUR_DOMAIN_HERE"
+:local recordName "YOUR_RECORD_NAME_HERE"
 :local recordType "A"
 :local ttl 60
 :local proxied "false"
