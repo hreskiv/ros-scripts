@@ -1,0 +1,20 @@
+name: mikr
+descr: MikroTik Manager — web-based device management, monitoring, and configuration for MikroTik fleets.
+page: https://mikr.mtik.pl
+category: networking
+default-credentials: admin/admin
+services:
+  mikr:
+    image: ghcr.io/hreskiv/mikr:latest
+    ports:
+      - "3000:3000:web"
+      - "3443:3443:web-ssl"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - ENCRYPTION_KEY=d585a2ab33a141b444b1f34fdeb181006d07b432176f63b90efde5f21c89e96b
+      - JWT_SECRET=e12db4556588a82129e99d05f7feb834667106896c3eb6cb4af7f60caf7a58ef
+    volumes:
+      - data:/app/data
+    restart: unless-stopped
+

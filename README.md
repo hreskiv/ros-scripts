@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-CC--BY--NC--4.0-green)
 ![Stars](https://img.shields.io/github/stars/hreskiv/ros-scripts)
 
-A collection of practical RouterOS v7 scripts and configurations used in [MikroTik training courses](https://mtik.pl) and [YouTube videos](https://www.youtube.com/@mikrotikpolska).
+A collection of practical RouterOS v7 scripts, configurations, and app definitions used in [MikroTik training courses](https://mtik.pl) and [YouTube videos](https://www.youtube.com/@mikrotikpolska).
 
 ## Scripts
 
@@ -21,8 +21,14 @@ A collection of practical RouterOS v7 scripts and configurations used in [MikroT
 | Script | Description |
 |--------|-------------|
 | [cf-ddns.rsc](cf-ddns.rsc) | Cloudflare Dynamic DNS — updates A record via API when public IP changes |
-| [contry-block.rsc](contry-block.rsc) | Country-based IP blocking using [iwik.org](http://www.iwik.org/ipcountry/) address lists |
+| [country-block.rsc](country-block.rsc) | Country-based IP blocking using [iwik.org](http://www.iwik.org/ipcountry/) address lists |
 | [ex-im-certs.rsc](ex-im-certs.rsc) | Bulk export and import of all certificates (PKCS12) |
+
+### Containerized Apps (RouterOS 7.22+)
+
+| File | Description |
+|------|-------------|
+| [mikr.yaml](mikr.yaml) | [MikroTik Manager](https://mikr.mtik.pl) — web-based device management and monitoring. Deploy with `/app add yaml=` |
 
 ## Usage
 
@@ -70,6 +76,22 @@ DHCP client script that creates recursive routes on lease bound and cleans up on
 ### ppp-profile.txt — PPP On-Up / On-Down
 
 Same recursive routing concept as `dhcp_recursive.rsc`, but triggered by PPP connection events. Suitable for LTE, PPPoE, or any PPP-based WAN.
+
+### mikr.yaml — MikroTik Manager App
+
+YAML definition for deploying [MikroTik Manager](https://mikr.mtik.pl) as a containerized app on RouterOS 7.22+.
+
+**Deploy on CHR/RouterOS:**
+```routeros
+/app add yaml=[/file get mikr.yaml contents]
+```
+
+> **Important:** The `ENCRYPTION_KEY` and `JWT_SECRET` values in the file are examples. Generate your own before use:
+> ```bash
+> openssl rand -hex 32
+> ```
+
+**Default credentials:** `admin` / `admin`
 
 ## Requirements
 
