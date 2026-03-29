@@ -28,7 +28,7 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 
 | File | Description |
 |------|-------------|
-| [mikr.yaml](mikr.yaml) | [MikroTik Manager](https://mikr.mtik.pl) — web-based device management and monitoring. Deploy with `/app add yaml=` |
+| [mikr.yaml](mikr.yaml) | [MikroTik Manager](https://mikr.mtik.pl) — web-based device management and monitoring |
 
 ## Usage
 
@@ -60,6 +60,8 @@ Updates a Cloudflare DNS A record when the router's public IP changes. Uses the 
 
 **Features:** IP validation, change detection (skips update if IP unchanged), error logging.
 
+---
+
 ### DualWAN-Active-Active.rsc — Dual WAN
 
 Complete Active-Active configuration for two ISPs with:
@@ -69,13 +71,19 @@ Complete Active-Active configuration for two ISPs with:
 - Masquerade on both uplinks
 - Blackhole fallback route
 
+---
+
 ### dhcp_recursive.rsc — DHCP Recursive Routes
 
 DHCP client script that creates recursive routes on lease bound and cleans up on release. Ensures traffic always returns via the correct ISP. Includes dynamic NAT rule management.
 
+---
+
 ### ppp-profile.txt — PPP On-Up / On-Down
 
 Same recursive routing concept as `dhcp_recursive.rsc`, but triggered by PPP connection events. Suitable for LTE, PPPoE, or any PPP-based WAN.
+
+---
 
 ### mikr.yaml — MikroTik Manager App
 
