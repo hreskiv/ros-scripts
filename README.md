@@ -22,6 +22,7 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 |--------|-------------|
 | [cf-ddns.rsc](cf-ddns.rsc) | Cloudflare Dynamic DNS — updates A record via API when public IP changes |
 | [country-block.rsc](country-block.rsc) | Country-based IP blocking using [iwik.org](http://www.iwik.org/ipcountry/) address lists |
+| [ip-reputation.rsc](ip-reputation.rsc) | Spamhaus DROP list — downloads and populates `spamhaus-drop` address-list for firewall blocking |
 | [ex-im-certs.rsc](ex-im-certs.rsc) | Bulk export and import of all certificates (PKCS12) |
 
 ### Containerized Apps (RouterOS 7.22+)
@@ -82,6 +83,23 @@ DHCP client script that creates recursive routes on lease bound and cleans up on
 ### ppp-profile.txt — PPP On-Up / On-Down
 
 Same recursive routing concept as `dhcp_recursive.rsc`, but triggered by PPP connection events. Suitable for LTE, PPPoE, or any PPP-based WAN.
+
+---
+
+### ip-reputation.rsc — Spamhaus DROP
+
+Downloads the [Spamhaus DROP](https://www.spamhaus.org/drop/) list and populates the `spamhaus-drop` address-list. Use it in firewall raw/filter rules to drop traffic from known-malicious networks.
+
+**Schedule (once per day):**
+```routeros
+/system scheduler add name=spamhaus-drop interval=1d start-time=03:00 \
+    on-event="/import file-name=ip-reputation.rsc"
+```
+
+**Example firewall rule:**
+```routeros
+/ip firewall raw add chain=prerouting src-address-list=spamhaus-drop action=drop
+```
 
 ---
 
