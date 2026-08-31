@@ -1,0 +1,171 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+    - uuid: 407e4c7edacf455cb72c40566357510f
+      name: Templates/Net
+  templates:
+    - uuid: 422adfd8a1d14de4826c31da5f781bf7
+      template: 'MikroTik ISP by SNMP'
+      name: 'MikroTik ISP by SNMP'
+      description: |
+        Discovers MikroTik uplink interfaces by the interface COMMENT
+        (RouterOS comment -> IF-MIB::ifAlias), not by port name.
+        Works the same for ether1, sfp-sfpplus1 or a VLAN interface.
+
+        On the router:
+          /interface ethernet set [find default-name=ether1] comment=ISP1
+          /snmp community set [find default=yes] name=<community> addresses=<Zabbix IP>
+          /snmp set enabled=yes
+
+        The Zabbix host needs an SNMP interface and {$SNMP_COMMUNITY}.
+      groups:
+        - name: Templates/Net
+      discovery_rules:
+        - uuid: 5d51a919535245e886d8424cc3987c6e
+          name: 'ISP interface discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#IFALIAS},IF-MIB::ifAlias,{#IFNAME},IF-MIB::ifDescr]'
+          key: isp.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#IFALIAS}'
+                value: '{$ISP.ALIAS.MATCHES}'
+                formulaid: A
+          lifetime: 7d
+          description: 'A single SNMP walk returns ifAlias and ifDescr under the same indexes, so both macros come from one pass.'
+          item_prototypes:
+            - uuid: 4be4d3d4b40342a3b7641536b2b978bf
+              name: '{#IFALIAS} ({#IFNAME}): Bits received'
+              type: SNMP_AGENT
+              snmp_oid: 'IF-MIB::ifHCInOctets.{#SNMPINDEX}'
+              key: 'isp.if.in[ifHCInOctets.{#SNMPINDEX}]'
+              delay: 1m
+              history: 7d
+              value_type: FLOAT
+              units: bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+                - type: MULTIPLIER
+                  parameters:
+                    - '8'
+              tags:
+                - tag: component
+                  value: network
+                - tag: isp
+                  value: '{#IFALIAS}'
+            - uuid: 69ec271f6795438f89470cb02c342a83
+              name: '{#IFALIAS} ({#IFNAME}): Bits sent'
+              type: SNMP_AGENT
+              snmp_oid: 'IF-MIB::ifHCOutOctets.{#SNMPINDEX}'
+              key: 'isp.if.out[ifHCOutOctets.{#SNMPINDEX}]'
+              delay: 1m
+              history: 7d
+              value_type: FLOAT
+              units: bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+                - type: MULTIPLIER
+                  parameters:
+                    - '8'
+              tags:
+                - tag: component
+                  value: network
+                - tag: isp
+                  value: '{#IFALIAS}'
+            - uuid: 0bd791eec8544cba986cb7533c963df4
+              name: '{#IFALIAS} ({#IFNAME}): Operational status'
+              type: SNMP_AGENT
+              snmp_oid: 'IF-MIB::ifOperStatus.{#SNMPINDEX}'
+              key: 'isp.if.status[ifOperStatus.{#SNMPINDEX}]'
+              delay: 1m
+              history: 7d
+              trends: '0'
+              valuemap:
+                name: 'Interface operational status'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              tags:
+                - tag: component
+                  value: network
+                - tag: isp
+                  value: '{#IFALIAS}'
+              trigger_prototypes:
+                - uuid: af5c703f17934b1e8934d2db8ffab57b
+                  expression: 'last(/MikroTik ISP by SNMP/isp.if.status[ifOperStatus.{#SNMPINDEX}])={$ISP.STATUS.DOWN}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/MikroTik ISP by SNMP/isp.if.status[ifOperStatus.{#SNMPINDEX}])={$ISP.STATUS.UP}'
+                  name: '{#IFALIAS} ({#IFNAME}): link down'
+                  priority: HIGH
+                  description: 'Status values live in macros instead of being hardcoded into the expression.'
+                  tags:
+                    - tag: scope
+                      value: availability
+                    - tag: isp
+                      value: '{#IFALIAS}'
+            - uuid: 4a1e56a74abe46c4bd2fb787eac07a3c
+              name: '{#IFALIAS} ({#IFNAME}): Interface comment (ifAlias)'
+              type: SNMP_AGENT
+              snmp_oid: 'IF-MIB::ifAlias.{#SNMPINDEX}'
+              key: 'isp.if.alias[ifAlias.{#SNMPINDEX}]'
+              delay: 1h
+              history: 7d
+              trends: '0'
+              value_type: CHAR
+              description: 'The very comment shown by /interface print, so it is visible that discovery reads the comment itself.'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              tags:
+                - tag: component
+                  value: network
+                - tag: isp
+                  value: '{#IFALIAS}'
+          graph_prototypes:
+            - uuid: c179789df3e24771ae9f8c9cde8eecee
+              name: '{#IFALIAS} ({#IFNAME}): Traffic'
+              graph_items:
+                - color: 1A7C11
+                  item:
+                    host: 'MikroTik ISP by SNMP'
+                    key: 'isp.if.in[ifHCInOctets.{#SNMPINDEX}]'
+                - sortorder: '1'
+                  color: 2774A4
+                  item:
+                    host: 'MikroTik ISP by SNMP'
+                    key: 'isp.if.out[ifHCOutOctets.{#SNMPINDEX}]'
+      macros:
+        - macro: '{$ISP.ALIAS.MATCHES}'
+          value: '^ISP'
+          description: 'Regex matched against the interface comment. Change it here to discover a different set of interfaces.'
+        - macro: '{$ISP.STATUS.DOWN}'
+          value: '2'
+          description: 'ifOperStatus down'
+        - macro: '{$ISP.STATUS.UP}'
+          value: '1'
+          description: 'ifOperStatus up'
+      valuemaps:
+        - uuid: db5fd3445d8a4c6abc1441c69bc47c6f
+          name: 'Interface operational status'
+          mappings:
+            - value: '1'
+              newvalue: up
+            - value: '2'
+              newvalue: down
+            - value: '3'
+              newvalue: testing
+            - value: '4'
+              newvalue: unknown
+            - value: '5'
+              newvalue: dormant
+            - value: '6'
+              newvalue: notPresent
+            - value: '7'
+              newvalue: lowerLayerDown

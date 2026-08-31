@@ -39,6 +39,12 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 |------|-------------|
 | [mikr.yaml](mikr.yaml) | [MikroTik Manager](https://mikr.mtik.pl) — web-based device management and monitoring |
 
+### Monitoring
+
+| File | Description |
+|------|-------------|
+| [mikrotik-isp-by-snmp.yaml](mikrotik-isp-by-snmp.yaml) | Zabbix 7.4 template — discovers uplink interfaces by the RouterOS **comment** (`ifAlias`), not by port name |
+
 ## Usage
 
 Each `.rsc` file is a standalone script. Review and adjust variables before importing:
@@ -166,6 +172,38 @@ YAML definition for deploying [MikroTik Manager](https://mikr.mtik.pl) as a cont
 > ```
 
 **Default credentials:** `admin` / `admin`
+
+---
+
+### mikrotik-isp-by-snmp.yaml — Zabbix template, ISP discovery by interface comment
+
+Zabbix template (export format 7.4) that discovers uplink interfaces by the **interface comment** instead of the port name. RouterOS exposes the comment over SNMP as `IF-MIB::ifAlias`, so the same template fits a router with the uplink on `ether1`, on `sfp-sfpplus1` or on a VLAN interface — nothing has to be adjusted per host.
+
+**On the router:**
+```routeros
+/interface ethernet set [find default-name=ether1] comment=ISP1
+/snmp community set [find default=yes] name=<community> addresses=<Zabbix IP>
+/snmp set enabled=yes
+```
+
+**Verify before importing** — an empty output here means there is nothing for discovery to find:
+```bash
+snmpwalk -v2c -c <community> <router> IF-MIB::ifAlias
+```
+
+**In Zabbix:** *Data collection → Templates → Import*, then link the template to a host that has an SNMP interface and `{$SNMP_COMMUNITY}` set.
+
+**What it creates per discovered interface:** bits received / bits sent (`ifHCInOctets` / `ifHCOutOctets`), operational status with a value map, the comment itself as an item, a traffic graph, and a `link down` trigger.
+
+**Macros:**
+
+| Macro | Default | Meaning |
+|-------|---------|---------|
+| `{$ISP.ALIAS.MATCHES}` | `^ISP` | Regex matched against the interface comment — change it to discover a different set of interfaces |
+| `{$ISP.STATUS.DOWN}` | `2` | `ifOperStatus` value treated as down |
+| `{$ISP.STATUS.UP}` | `1` | `ifOperStatus` value treated as up |
+
+Discovery runs hourly, items poll every minute. Tested with Zabbix 7.4 against RouterOS 7.23.3 (CRS320, RB5009).
 
 ## Requirements
 
