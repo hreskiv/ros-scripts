@@ -1,0 +1,340 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+    - uuid: 1119b916f648408a837c317686a119ae
+      name: 'Templates/Network devices'
+  templates:
+    - uuid: b680bed40a5a45b8ba8f1f732ca7cc3f
+      template: 'MikroTik LTE by SSH'
+      name: 'MikroTik LTE by SSH'
+      description: |
+        Monitoring of MikroTik (RouterOS v7) LTE interfaces over SSH.
+        One SSH session per poll: a master item runs `/interface lte monitor <iface> once as-value`,
+        all metrics are parsed as dependent items. LTE interfaces are auto-discovered via LLD.
+        Verified live against Quectel EC25-EU. REST API deliberately avoided (session leak on ROS v7).
+        Traffic / oper-status are intentionally out of scope — layer the official MikroTik SNMP template alongside.
+      vendor:
+        name: community
+        version: 7.0-0
+      groups:
+        - name: 'Templates/Network devices'
+      discovery_rules:
+        - uuid: 05c0e3168daf4ffc8eca49c66fcb3fb3
+          name: 'LTE interface discovery'
+          type: SSH
+          key: 'ssh.run[lte.discovery,{HOST.CONN},{$SSH.PORT}]'
+          delay: 1h
+          params: ':local out "{\"data\":["; :local f true; :foreach i in=[/interface lte find] do={ :local n [/interface lte get $i name]; :if (!$f) do={:set out ($out.",")}; :set f false; :set out ($out . "{\"{#LTE.IFNAME}\":\"" . $n . "\"}") }; :set out ($out."]}"); :put $out'
+          username: '{$SSH.USER}'
+          password: '{$SSH.PASSWORD}'
+          filter:
+            evaltype: AND
+            conditions:
+              - macro: '{#LTE.IFNAME}'
+                value: '{$LTE.IFNAME.MATCHES}'
+              - macro: '{#LTE.IFNAME}'
+                value: '{$LTE.IFNAME.NOT_MATCHES}'
+                operator: NOT_MATCHES_REGEX
+          item_prototypes:
+            - uuid: c3aae25eff8f41218495297691ddfe37
+              name: 'LTE [{#LTE.IFNAME}]: Access technology'
+              type: DEPENDENT
+              key: 'lte.access_tech[{#LTE.IFNAME}]'
+              value_type: CHAR
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'data-class=([^;]+)'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: bb72c5913589475290c222042518e623
+              name: 'LTE [{#LTE.IFNAME}]: Primary band'
+              type: DEPENDENT
+              key: 'lte.band[{#LTE.IFNAME}]'
+              value_type: CHAR
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'primary-band=(B[0-9]+)'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: 7976f64234e2487abceb3f17e5f428e4
+              name: 'LTE [{#LTE.IFNAME}]: Cell ID'
+              type: DEPENDENT
+              key: 'lte.cellid[{#LTE.IFNAME}]'
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - current-cellid=(\d+)
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: ad719bca3e6442a582b237b4d83365f7
+              name: 'LTE [{#LTE.IFNAME}]: EARFCN'
+              type: DEPENDENT
+              key: 'lte.earfcn[{#LTE.IFNAME}]'
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'earfcn: (\d+)'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: 45becd0eec0b40bcb3a576dcdbf64df9
+              name: 'LTE [{#LTE.IFNAME}]: eNB ID'
+              type: DEPENDENT
+              key: 'lte.enbid[{#LTE.IFNAME}]'
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - enb-id=(\d+)
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: a4ca1c7eaeb3448182666f184e9ae050
+              name: 'LTE [{#LTE.IFNAME}]: Operator'
+              type: DEPENDENT
+              key: 'lte.operator[{#LTE.IFNAME}]'
+              value_type: CHAR
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'current-operator=([^;]+)'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: 4fceaeb1fd8148f58de1f786d81cd5a2
+              name: 'LTE [{#LTE.IFNAME}]: RSRP'
+              type: DEPENDENT
+              key: 'lte.rsrp[{#LTE.IFNAME}]'
+              value_type: FLOAT
+              units: dBm
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'rsrp=(-?\d+)'
+                    - \1
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: signal
+              trigger_prototypes:
+                - uuid: 8a510570697f4317b570a2311784ae5d
+                  expression: 'nodata(/MikroTik LTE by SSH/lte.rsrp[{#LTE.IFNAME}],5m)=1'
+                  name: 'LTE [{#LTE.IFNAME}]: No data from SSH for 5m'
+                  priority: AVERAGE
+                  tags:
+                    - tag: scope
+                      value: availability
+                - uuid: db80875a728a4931aa634448b25b46f1
+                  expression: 'max(/MikroTik LTE by SSH/lte.rsrp[{#LTE.IFNAME}],5m)<{$LTE.RSRP.CRIT}'
+                  name: 'LTE [{#LTE.IFNAME}]: RSRP critically low (<{$LTE.RSRP.CRIT} dBm)'
+                  priority: HIGH
+                  tags:
+                    - tag: scope
+                      value: performance
+                - uuid: f9e5bcc5b9654f569278f0239c0eeecc
+                  expression: 'max(/MikroTik LTE by SSH/lte.rsrp[{#LTE.IFNAME}],5m)<{$LTE.RSRP.WARN}'
+                  name: 'LTE [{#LTE.IFNAME}]: RSRP low (<{$LTE.RSRP.WARN} dBm)'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'LTE [{#LTE.IFNAME}]: RSRP critically low (<{$LTE.RSRP.CRIT} dBm)'
+                      expression: 'max(/MikroTik LTE by SSH/lte.rsrp[{#LTE.IFNAME}],5m)<{$LTE.RSRP.CRIT}'
+                  tags:
+                    - tag: scope
+                      value: performance
+            - uuid: 345fa8e70dd6466c810fbeba853bcb4a
+              name: 'LTE [{#LTE.IFNAME}]: RSRQ'
+              type: DEPENDENT
+              key: 'lte.rsrq[{#LTE.IFNAME}]'
+              value_type: FLOAT
+              units: dB
+              description: 'as-value RSRQ is in 0.1 dB units (verified: -80 = -8 dB).'
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'rsrq=(-?\d+)'
+                    - \1
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.1'
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: signal
+              trigger_prototypes:
+                - uuid: 5f18a160582b43c580ba883b04a564d0
+                  expression: 'max(/MikroTik LTE by SSH/lte.rsrq[{#LTE.IFNAME}],5m)<{$LTE.RSRQ.WARN}'
+                  name: 'LTE [{#LTE.IFNAME}]: RSRQ low (<{$LTE.RSRQ.WARN} dB)'
+                  priority: WARNING
+                  tags:
+                    - tag: scope
+                      value: performance
+            - uuid: 93d17b11031c46d1b939518368f02a1f
+              name: 'LTE [{#LTE.IFNAME}]: RSSI'
+              type: DEPENDENT
+              key: 'lte.rssi[{#LTE.IFNAME}]'
+              value_type: FLOAT
+              units: dBm
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'rssi=(-?\d+)'
+                    - \1
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: signal
+            - uuid: 3e271fc6ab6147f793a36fc6ed87fc21
+              name: 'LTE [{#LTE.IFNAME}]: Session uptime'
+              type: DEPENDENT
+              key: 'lte.session_uptime[{#LTE.IFNAME}]'
+              units: uptime
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      var m = value.match(/session-uptime=([^;]+)/);
+                      if (!m) throw 'no session-uptime';
+                      var s = m[1], d = 0;
+                      var dm = s.match(/(\d+)d/);
+                      if (dm) { d = parseInt(dm[1]); s = s.replace(/\d+d/, ''); }
+                      var p = s.split(':').map(Number);
+                      return d*86400 + (p[0]||0)*3600 + (p[1]||0)*60 + (p[2]||0);
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+            - uuid: 2ef3d8f679854b59aa08bd79af166e9f
+              name: 'LTE [{#LTE.IFNAME}]: SINR'
+              type: DEPENDENT
+              key: 'lte.sinr[{#LTE.IFNAME}]'
+              value_type: FLOAT
+              units: dB
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'sinr=(-?\d+)'
+                    - \1
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: signal
+              trigger_prototypes:
+                - uuid: 7f6b187aa28c4d339d1a5b0d3c3e08b1
+                  expression: 'max(/MikroTik LTE by SSH/lte.sinr[{#LTE.IFNAME}],5m)<{$LTE.SINR.WARN}'
+                  name: 'LTE [{#LTE.IFNAME}]: SINR low (<{$LTE.SINR.WARN} dB)'
+                  priority: WARNING
+                  tags:
+                    - tag: scope
+                      value: performance
+            - uuid: 44e34da15d3f436a9740fd44f89803dd
+              name: 'LTE [{#LTE.IFNAME}]: Status'
+              type: DEPENDENT
+              key: 'lte.status[{#LTE.IFNAME}]'
+              value_type: CHAR
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - 'status=([^;]+)'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              master_item:
+                key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              tags:
+                - tag: component
+                  value: state
+              trigger_prototypes:
+                - uuid: 5db6db1d697149b58ec9c02ead77faa6
+                  expression: 'last(/MikroTik LTE by SSH/lte.status[{#LTE.IFNAME}])<>"connected" and last(/MikroTik LTE by SSH/lte.status[{#LTE.IFNAME}])<>"running"'
+                  name: 'LTE [{#LTE.IFNAME}]: Not connected (status={ITEM.VALUE})'
+                  priority: AVERAGE
+                  tags:
+                    - tag: scope
+                      value: availability
+            - uuid: 9196dd860bbf437e863dd3082e05d68c
+              name: 'LTE [{#LTE.IFNAME}]: Monitor raw'
+              type: SSH
+              key: 'ssh.run[lte.monitor.{#LTE.IFNAME},{HOST.CONN},{$SSH.PORT}]'
+              history: '0'
+              value_type: TEXT
+              params: ':put [/interface lte monitor {#LTE.IFNAME} once as-value]'
+              username: '{$SSH.USER}'
+              password: '{$SSH.PASSWORD}'
+              description: 'Master item. Raw key=value blob from RouterOS LTE monitor.'
+              tags:
+                - tag: component
+                  value: raw
+      macros:
+        - macro: '{$LTE.IFNAME.MATCHES}'
+          value: '.*'
+          description: 'LLD filter: LTE interface name regexp to keep'
+        - macro: '{$LTE.IFNAME.NOT_MATCHES}'
+          value: CHANGE_IF_NEEDED
+          description: 'LLD filter: LTE interface name regexp to drop'
+        - macro: '{$LTE.RSRP.CRIT}'
+          value: '-110'
+          description: 'RSRP critical threshold, dBm'
+        - macro: '{$LTE.RSRP.WARN}'
+          value: '-100'
+          description: 'RSRP warning threshold, dBm (above this = good)'
+        - macro: '{$LTE.RSRQ.WARN}'
+          value: '-15'
+          description: 'RSRQ warning threshold, dB'
+        - macro: '{$LTE.SINR.WARN}'
+          value: '0'
+          description: 'SINR warning threshold, dB'
+        - macro: '{$SSH.PASSWORD}'
+          type: SECRET_TEXT
+          value: admin
+          description: 'SSH password for RouterOS'
+        - macro: '{$SSH.PORT}'
+          value: '22'
+        - macro: '{$SSH.USER}'
+          value: admin
+          description: 'SSH username for RouterOS'

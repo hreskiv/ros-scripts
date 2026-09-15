@@ -44,6 +44,7 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 | File | Description |
 |------|-------------|
 | [mikrotik-isp-by-snmp.yaml](mikrotik-isp-by-snmp.yaml) | Zabbix 7.4 template — discovers uplink interfaces by the RouterOS **comment** (`ifAlias`), not by port name |
+| [mikrotik-lte-by-ssh.yaml](mikrotik-lte-by-ssh.yaml) | Zabbix 7.4 template — LTE band, cell, operator and signal over **one SSH session per poll**, LTE interfaces auto-discovered |
 
 ## Usage
 
@@ -204,6 +205,44 @@ snmpwalk -v2c -c <community> <router> IF-MIB::ifAlias
 | `{$ISP.STATUS.UP}` | `1` | `ifOperStatus` value treated as up |
 
 Discovery runs hourly, items poll every minute. Tested with Zabbix 7.4 against RouterOS 7.23.3 (CRS320, RB5009).
+
+---
+
+### mikrotik-lte-by-ssh.yaml — Zabbix template, LTE monitoring over SSH
+
+Zabbix template (export format 7.4) for RouterOS v7 LTE interfaces. The signal numbers are only part of the picture — when a backup LTE link degrades, the questions are which cell the modem jumped to, which band it is on, which operator serves it and how long the session has lasted. All of that is in `/interface lte monitor`, and this template collects it.
+
+**How it works:**
+- **One SSH session per poll.** A master item runs `/interface lte monitor <iface> once as-value`; every metric is a dependent item parsed from that single output — not twelve sessions.
+- **Discovery over SSH.** Once an hour a short RouterOS script lists `/interface lte` and returns the LLD JSON with `{#LTE.IFNAME}`.
+- **SSH, not REST API** — deliberately, because of session leaks on RouterOS v7.
+- **Layers, not a replacement.** Traffic and oper-status are out of scope on purpose — link the official MikroTik SNMP template to the same host.
+
+**What it creates per LTE interface:** primary band, Cell ID, eNB ID, EARFCN, operator, access technology, session uptime, status, RSRP, RSRQ, RSSI and SINR (12 dependent items), plus 6 triggers — no data for 5 minutes, RSRP low / critically low, RSRQ low, SINR low, and not connected. Text items use *Discard unchanged with heartbeat* (1h), so history only grows when the value changes.
+
+**In Zabbix:** *Data collection → Templates → Import*, link the template to the router host and set the SSH credentials.
+
+> **Credentials:** the file ships with `admin` / `admin` as placeholders. Create a dedicated read-only user on the router and put it in `{$SSH.USER}` / `{$SSH.PASSWORD}` (the password macro is a secret text).
+
+**Macros:**
+
+| Macro | Default | Meaning |
+|-------|---------|---------|
+| `{$SSH.USER}` | `admin` | SSH user on the router — replace with a read-only user |
+| `{$SSH.PASSWORD}` | `admin` | SSH password (secret text) |
+| `{$SSH.PORT}` | `22` | SSH port |
+| `{$LTE.IFNAME.MATCHES}` | `.*` | Regex of LTE interface names to discover |
+| `{$LTE.IFNAME.NOT_MATCHES}` | `CHANGE_IF_NEEDED` | Regex of LTE interface names to skip |
+| `{$LTE.RSRP.CRIT}` | `-110` | RSRP critical threshold, dBm |
+| `{$LTE.RSRP.WARN}` | `-100` | RSRP warning threshold, dBm |
+| `{$LTE.RSRQ.WARN}` | `-15` | RSRQ warning threshold, dB |
+| `{$LTE.SINR.WARN}` | `0` | SINR warning threshold, dB |
+
+The thresholds are a starting point, not a standard — tune them to what your site considers a healthy signal.
+
+> **Note:** on RHEL-family Zabbix servers with SELinux enforcing, SSH checks fail with `Permission denied` until you run `setsebool -P zabbix_can_network on`.
+
+Parsing verified against a Quectel EC25-EU modem; tested with Zabbix 7.4 on RouterOS 7.24.2 (KNOT LTE4).
 
 ## Requirements
 
