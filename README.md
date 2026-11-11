@@ -30,7 +30,7 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 |--------|-------------|
 | [cf-ddns.rsc](cf-ddns.rsc) | Cloudflare Dynamic DNS — updates A record via API when public IP changes |
 | [country-block.rsc](country-block.rsc) | Country-based IP blocking using [iwik.org](http://www.iwik.org/ipcountry/) address lists |
-| [ip-reputation.rsc](ip-reputation.rsc) | Spamhaus DROP list — downloads and populates `spamhaus-drop` address-list for firewall blocking |
+| [ip-reputation.rsc](ip-reputation.rsc) | Spamhaus DROP list (JSON) — downloads and populates `spamhaus-drop` address-list for firewall blocking |
 | [ex-im-certs.rsc](ex-im-certs.rsc) | Bulk export and import of all certificates (PKCS12) |
 
 ### Containerized Apps (RouterOS 7.22+)
@@ -143,7 +143,11 @@ Same recursive routing concept as `dhcp_recursive.rsc`, but triggered by PPP con
 
 ### ip-reputation.rsc — Spamhaus DROP
 
-Downloads the [Spamhaus DROP](https://www.spamhaus.org/drop/) list and populates the `spamhaus-drop` address-list. Use it in firewall raw/filter rules to drop traffic from known-malicious networks.
+Downloads the [Spamhaus DROP](https://www.spamhaus.org/drop/) list in JSON format (`drop_v4.json`) and populates the `spamhaus-drop` address-list. Use it in firewall raw/filter rules to drop traffic from known-malicious networks.
+
+Spamhaus recommends the JSON feed over the legacy `drop.txt`, which is going to be deprecated. The JSON file is too large for `/file get contents`, so the script reads it in chunks.
+
+**Safety checks:** if the download fails or the file is smaller than 10 KB, the existing list is left untouched and an error is logged.
 
 **Schedule (once per day):**
 ```routeros
