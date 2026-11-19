@@ -46,6 +46,12 @@ A collection of practical RouterOS v7 scripts, configurations, and app definitio
 | [mikrotik-isp-by-snmp.yaml](mikrotik-isp-by-snmp.yaml) | Zabbix 7.4 template — discovers uplink interfaces by the RouterOS **comment** (`ifAlias`), not by port name |
 | [mikrotik-lte-by-ssh.yaml](mikrotik-lte-by-ssh.yaml) | Zabbix 7.4 template — LTE band, cell, operator and signal over **one SSH session per poll**, LTE interfaces auto-discovered |
 
+### Hotspot
+
+| Folder | Description |
+|--------|-------------|
+| [hotspot-hot-coffee/](hotspot-hot-coffee/) | Custom Hotspot pages for a café — one-tap 30-minute trial login with a terms checkbox, plus matching connected / status / logout pages |
+
 ## Usage
 
 Each `.rsc` file is a standalone script. Review and adjust variables before importing:
@@ -247,6 +253,47 @@ The thresholds are a starting point, not a standard — tune them to what your s
 > **Note:** on RHEL-family Zabbix servers with SELinux enforcing, SSH checks fail with `Permission denied` until you run `setsebool -P zabbix_can_network on`.
 
 Parsing verified against a Quectel EC25-EU modem; tested with Zabbix 7.4 on RouterOS 7.24.2 (KNOT LTE4).
+
+---
+
+### hotspot-hot-coffee/ — Custom Hotspot pages (trial login)
+
+A complete look for the Hotspot captive portal of a small café: the guest ticks *I agree to the terms of use* and taps **Connect for 30 minutes** — no username, no password, no vouchers. Every page is a single self-contained HTML file (inline CSS and SVG logo), so nothing has to be reachable before login and no Walled Garden entries are needed.
+
+| File | Shown when |
+|------|------------|
+| [login.html](hotspot-hot-coffee/login.html) | The guest opens any website before logging in |
+| [alogin.html](hotspot-hot-coffee/alogin.html) | Right after a successful login, then redirects to the original site |
+| [status.html](hotspot-hot-coffee/status.html) | Session status — time left, traffic, *Disconnect* button |
+| [logout.html](hotspot-hot-coffee/logout.html) | After *Disconnect*, with a *Connect again* button |
+
+![What login.html needs](hotspot-hot-coffee/login-html-anatomy.png)
+
+The key part of `login.html` is one link — the router logs the guest in as a trial user named `T-<MAC>`:
+
+```html
+<a href="$(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)">Connect for 30 minutes</a>
+```
+
+The terms checkbox only enables that link in the browser (a few lines of JavaScript) — the router itself never checks it.
+
+**Install (existing Hotspot server, new server profile):**
+
+1. Copy the server profile created by the Hotspot setup wizard (it keeps `hotspot-address` and `dns-name`), then on the copy:
+   ```routeros
+   /ip hotspot profile set hsprof-hot html-directory=hotspot-hot-coffee \
+       login-by=cookie,http-chap,trial trial-uptime-limit=30m
+   /ip hotspot set hotspot1 profile=hsprof-hot
+   ```
+2. Generate the default pages into that directory — the remaining files (`error.html`, `redirect.html`, `md5.js`, …) are still needed:
+   ```routeros
+   /ip hotspot reset-html hotspot1
+   ```
+3. Upload the four `.html` files from this folder over the defaults (WinBox *Files* drag-and-drop or `scp`). `reset-html` overwrites `login.html`, so always upload after it.
+
+> **Tip:** when the laptop running WinBox is also the Hotspot test client, connect WinBox by **IP**, not by MAC — a MAC session jumps to the Wi-Fi interface the moment the laptop joins the Hotspot and keeps reconnecting.
+
+Tested on RouterOS 7.25.1 (hAP ax²) with a phone and a laptop as clients.
 
 ## Requirements
 

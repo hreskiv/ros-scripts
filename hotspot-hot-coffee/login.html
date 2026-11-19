@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="-1">
+<title>Hot Coffee — Wi-Fi</title>
+<style>
+  :root {
+    --bg: #f6efe6;
+    --card: #fffaf4;
+    --ink: #2b1d14;
+    --muted: #7a6656;
+    --accent: #b5562b;
+    --accent-ink: #fff;
+    --line: #e6d6c4;
+    --err-bg: #fbe3dc;
+    --err-ink: #8a2c12;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%; max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 28px 24px 22px;
+    box-shadow: 0 10px 30px rgba(43,29,20,.08);
+  }
+  .brand { text-align: center; margin-bottom: 18px; }
+  .brand svg { width: 72px; height: 72px; }
+  .brand h1 { margin: 8px 0 2px; font-size: 26px; letter-spacing: .5px; }
+  .brand p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .error {
+    background: var(--err-bg); color: var(--err-ink);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: 14px;
+  }
+
+  .terms {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 14px; color: var(--muted);
+    margin: 4px 0 16px; cursor: pointer;
+  }
+  .terms input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+  .terms a { color: var(--accent); }
+
+  .btn {
+    display: block; width: 100%;
+    padding: 14px 16px; border: 0; border-radius: 12px;
+    font: inherit; font-weight: 600; text-align: center; text-decoration: none;
+    background: var(--accent); color: var(--accent-ink);
+    cursor: pointer;
+  }
+  .btn[aria-disabled="true"], .btn:disabled { opacity: .45; pointer-events: none; }
+
+  details.rules { margin-top: 16px; font-size: 13px; color: var(--muted); }
+  details.rules summary { cursor: pointer; }
+  footer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <div class="brand">
+    <!-- inline SVG logo: no external files, so no walled garden needed -->
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="31" fill="#2b1d14"/>
+      <path d="M18 28h24v10a10 10 0 0 1-10 10h-4a10 10 0 0 1-10-10z" fill="#f6efe6"/>
+      <path d="M42 31h3a5 5 0 0 1 0 10h-3" fill="none" stroke="#f6efe6" stroke-width="3"/>
+      <path d="M25 14c-3 4 3 6 0 10M32 12c-3 4 3 6 0 10M39 14c-3 4 3 6 0 10" fill="none" stroke="#b5562b" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <h1>Hot Coffee</h1>
+    <p>Wi-Fi for our guests</p>
+  </div>
+
+  $(if error)<div class="error">$(error)</div>$(endif)
+
+  <label class="terms">
+    <input type="checkbox" id="accept">
+    <span>I agree to the <a href="#rules" onclick="document.getElementById('rules').open=true">terms of use</a></span>
+  </label>
+
+  <a class="btn gated" aria-disabled="true"
+     href="$(link-login-only)?dst=$(link-orig-esc)&amp;username=T-$(mac-esc)">Connect for 30 minutes</a>
+
+  <details class="rules" id="rules">
+    <summary>Terms of use</summary>
+    <p>This network is provided for café guests. Do not use it for any unlawful activity. Speed and session time may be limited.</p>
+  </details>
+
+  <footer>MAC: $(mac) · IP: $(ip)</footer>
+</main>
+
+<script>
+  // the button is enabled only after the terms are accepted
+  (function () {
+    var cb = document.getElementById('accept');
+    var gated = document.querySelectorAll('.gated');
+    function sync() {
+      for (var i = 0; i < gated.length; i++) {
+        gated[i].setAttribute('aria-disabled', cb.checked ? 'false' : 'true');
+      }
+    }
+    cb.addEventListener('change', sync);
+    sync();
+  })();
+</script>
+</body>
+</html>
