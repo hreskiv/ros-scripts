@@ -13,6 +13,9 @@
 :local chunkSize 30000
 :local cidrKey "\"cidr\":\""
 
+# Step 0: Remove a stale temp file left by an interrupted run (if any)
+:do { /file/remove $fileName } on-error={}
+
 # Step 1: Download — on failure the existing list is left untouched
 :do {
     /tool/fetch url=$url dst-path=$fileName
@@ -27,6 +30,16 @@
     /file/remove $fileName
     :log error ("Spamhaus DROP: file too small (" . $fileSize . " B), list unchanged")
     :error "file too small"
+}
+
+# Step 2b: Content check — an error page of a valid size must not wipe the list either
+:local readHead $chunkSize
+:if ($readHead > $fileSize) do={ :set readHead $fileSize }
+:local head ([/file/read file=$fileName offset=0 chunk-size=$readHead as-value]->"data")
+:if ([:typeof [:find $head $cidrKey]] = "nil") do={
+    /file/remove $fileName
+    :log error "Spamhaus DROP: no cidr entries in file, list unchanged"
+    :error "invalid content"
 }
 
 # Step 3: Remove old entries
